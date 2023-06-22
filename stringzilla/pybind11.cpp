@@ -325,6 +325,12 @@ struct py_spans_t : public std::enable_shared_from_this<py_spans_t> {
     iterator_t begin() const { return {this, 0}; }
     iterator_t end() const { return {this, parts_.size()}; }
     ssize_t size() const { return static_cast<ssize_t>(parts_.size()); }
+
+    std::shared_ptr<py_spans_t> sorted() const {
+        std::vector<uint32_t> new_order(parts_.size());
+        std::vector<span_t> reordered(parts_.size());
+        return std::make_shared<py_spans_t>(whole_, sub_parts);
+    }
 };
 
 bool py_span_t::contains(std::string_view needle, ssize_t start, ssize_t end) const {

@@ -429,6 +429,123 @@ inline static size_t strzl_neon_find_substr(strzl_haystack_t h, strzl_needle_t n
 
 #endif // Arm Neon
 
+typedef uin32_t strzl_array_size_t;
+
+struct strzl_array_of_strings_t {
+    void const *handle;
+    strzl_array_size_t count;
+    char const *(*get_start)(void const *, strzl_array_size_t);
+    strzl_array_size_t (*get_length)(void const *, strzl_array_size_t);
+};
+
+void _strzl_swap_permutation_members(strzl_array_size_t *permutation, strzl_array_size_t i, strzl_array_size_t j) {
+    strzl_array_size_t t = permutation[i];
+    permutation[i] = permutation[j];
+    permutation[j] = t;
+}
+
+strzl_array_size_t _strzl_sort_4char_partition( //
+    strzl_array_of_strings_t array,
+    strzl_array_size_t *permutation,
+    strzl_array_size_t low,
+    strzl_array_size_t high) {
+
+    // Choosing the pivot
+    char const *pivot = array.get_start(array, permutation[high]);
+
+    // Index of smaller element and indicates
+    // the right position of pivot found so far
+    strzl_array_size_t i = (low - 1);
+    for (strzl_array_size_t j = low; j <= high - 1; j++) {
+        // If current element is smaller than the pivot
+        char const *member_j = array.get_start(array, permutation[j]);
+        if (member_j < pivot) {
+            // Increment index of smaller element
+            i++;
+            _strzl_swap_permutation_members(permutation, i, j);
+        }
+    }
+    _strzl_swap_permutation_members(i + 1, high);
+    return i + 1;
+}
+
+inline static strzl_array_size_t strzl_sort_1char(strzl_array_of_strings_t,
+                                                  strzl_array_size_t *permutation,
+                                                  bool deduplicate) {}
+
+inline static strzl_array_size_t strzl_sort_2char(strzl_array_of_strings_t,
+                                                  strzl_array_size_t *permutation,
+                                                  bool deduplicate) {}
+
+inline static strzl_array_size_t strzl_sort_3char(strzl_array_of_strings_t,
+                                                  strzl_array_size_t *permutation,
+                                                  bool deduplicate) {}
+
+inline static strzl_array_size_t strzl_sort_4char(strzl_array_of_strings_t,
+                                                  strzl_array_size_t *permutation,
+                                                  bool deduplicate) {
+    //
+}
+
+/**
+ *  @brief  Sorting algorithm, built as a combo of quick-sorts for different length prefixes, and inplace merge-sort
+ *          over partial results. Outputs the sorted permutation of the original elements instead of changing inplace.
+ *  @return Number of sorted elements, potentially smaller than overall @ref array.count, if deduplication is requested.
+ *
+ *  @param deduplicate  A common scenarie is to follow-up sorting with deduplication. When `true`, that will be done
+ *                      automatically, simultaneously accelerating sorting, assuming less elements will have to be
+ *                      compared.
+ */
+inline static strzl_array_size_t strzl_naive_sort(strzl_array_of_strings_t array,
+                                                  strzl_array_size_t *permutation,
+                                                  bool deduplicate) {
+
+    // 0. Pre-populate the `permutation` list with `iota`.
+    for (strzl_array_size_t i = 0; i != array.count; ++i)
+        permutation[i] = i;
+
+    // 1. Estimate the number of elements falling into different buckets.
+    strzl_array_size_t count_1char = 0, count_2char = 0, count_3char = 0, count_long = 0;
+    for (strzl_array_size_t i = 0; i != array.count; ++i) {
+        switch (array.get_length(array.handle, i)) {
+        case 1: count_1char++; break;
+        case 2: count_2char++; break;
+        case 3: count_3char++; break;
+        default: count_long++; break;
+        }
+    }
+
+    // 2. Physically separate different length strings into different zones of `permutations`.
+    strzl_array_size_t *permutation_1char = permutation, *permutation_2char = permutation + count_1char,
+                       *permutation_3char = permutation + count_1char + count_2char,
+                       *permutation_long = permutation + count_1char + count_2char + count_3char;
+    for (strzl_array_size_t i = 0; i != array.count; ++i) {
+        switch (array.get_length(array.handle, i)) {
+        case 1: (*permutation_1char++) = i; break;
+        case 2: (*permutation_2char++) = i; break;
+        case 3: (*permutation_3char++) = i; break;
+        default: (*permutation_long++) = i; break;
+        }
+    }
+    permutation_1char = permutation, permutation_2char = permutation + count_1char,
+    permutation_3char = permutation + count_1char + count_2char,
+    permutation_long = permutation + count_1char + count_2char + count_3char;
+
+    // 3. Sort single-character, two-character, and three-character strings trivially.
+    strzl_array_of_strings_t array_single_char, array_double_char, array_triple_char;
+    strzl_sort_1char(array_single_char, permutation, deduplicate);
+    strzl_sort_2char(array_double_char, permutation, deduplicate);
+    strzl_sort_3char(array_triple_char, permutation, deduplicate);
+
+    // 4. Sorting longer strings will be done in two phases - "anomaly" ~ "prefix" and full-length.
+
+    // 5. Inplace merge-sort all sorted components.
+}
+
+inline static void strzl_naive_join(strzl_array_of_strings_t array, uint32_t *permutation) { //
+    qsort();
+}
+
 #ifdef __cplusplus
 }
 #endif
